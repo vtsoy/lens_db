@@ -414,3 +414,75 @@ CREATE TABLE feedback_comments (
     created_at timestamp not null default current_timestamp
 );
 comment on table feedback_comments is 'комментарий к отзыву';
+
+
+CREATE OR REPLACE FUNCTION update_category_date()
+  RETURNS TRIGGER
+AS
+$BODY$
+DECLARE
+BEGIN
+    new.updated_at = current_timestamp;
+RETURN new;
+END
+$BODY$
+LANGUAGE plpgsql VOLATILE;
+
+CREATE TRIGGER update_category_date
+  BEFORE UPDATE
+  ON categories
+  FOR EACH ROW
+EXECUTE PROCEDURE update_category_date();
+
+CREATE OR REPLACE FUNCTION update_category_by_prod()
+  RETURNS TRIGGER
+AS
+$BODY$
+BEGIN
+    update lens.categories cat
+        SET updated_at = now()
+    FROM lens.product_category pc
+    where cat.id = pc.category_id
+     AND  pc.product_id = (CASE
+                                 WHEN tg_op = 'DELETE'
+                                     THEN old.id
+                                 ELSE new.id
+            END);
+RETURN new;
+END
+$BODY$
+LANGUAGE plpgsql VOLATILE;
+
+
+CREATE OR REPLACE FUNCTION update_category_by_prod_cat()
+  RETURNS TRIGGER
+AS
+$BODY$
+BEGIN
+    update lens.categories cat
+        SET updated_at = now()
+
+    where cat.id = (CASE
+                                 WHEN tg_op = 'DELETE'
+                                     THEN old.category_id
+                                 ELSE new.category_id
+            END);
+RETURN new;
+END
+$BODY$
+LANGUAGE plpgsql VOLATILE;
+
+CREATE TRIGGER update_category_date
+  AFTER UPDATE OR DELETE OR INSERT
+  ON products
+  FOR EACH ROW
+EXECUTE PROCEDURE update_category_by_prod();
+
+CREATE TRIGGER update_category_date
+  AFTER UPDATE OR INSERT OR DELETE
+  ON product_category
+  FOR EACH ROW
+EXECUTE PROCEDURE update_category_by_prod_cat();
+
+INSERT INTO lens.category_types (name)
+values ('МАТЕРИАЛ'), ('ТИП ЛИНЗ'), ('СРОК НОШЕНИЯ'), ('ЦВЕТ');
