@@ -28,7 +28,7 @@ SET default_with_oids = false;
 --
 -- Name: ar_internal_metadata; Type: TABLE; Schema: public; Owner: alen_marz
 --
-DROP SCHEMA lens cascade ;
+DROP SCHEMA IF EXISTS lens cascade ;
 CREATE SCHEMA lens;
 SET search_path = lens;
 
@@ -139,3 +139,63 @@ CREATE TABLE order_positions (
     variant_id bigint references variants(id) NOT NULL
 );
 COMMENT ON TABLE order_positions IS 'позиции заказа';
+
+create table users
+(
+	id serial not null primary key,
+	login character varying not null,
+	pass character varying not null,
+	salt character varying,
+	status bigint default 1,
+	created_at timestamp default current_timestamp::timestamp without time zone
+);
+COMMENT ON table users IS 'Администраторы сайта';
+COMMENT ON COLUMN users.pass IS 'Хэш пароля';
+COMMENT ON COLUMN users.salt is 'Соль';
+COMMENT ON COLUMN users.status is 'СТатус 1 - действует, остальные по усмотрению';
+
+CREATE TABLE rbac_roles(
+    id serial primary key ,
+    name character varying unique
+);
+COMMENT ON TABLE rbac_roles IS 'Роли';
+
+CREATE TABLE user_assignment(
+    user_id integer references users(id) not null,
+    role character varying references rbac_roles(name) not null,
+    primary key (user_id, role)
+);
+COMMENT ON TABLE user_assignment IS 'привязка ролей пользователям';
+
+CREATE TABLE articles (
+    id serial primary key ,
+    picture character varying,
+    title character varying,
+    body character varying,
+    status integer default 0 not null,
+    created_by integer references users(id) not null ,
+    created_at timestamp not null default current_timestamp
+);
+comment on table articles is 'статьи';
+comment on column articles.status is 'статус 0 - на модерации (не тображать пользователю)';
+
+CREATE TABLE feedbacks (
+    id bigserial primary key ,
+    product_id integer references products (id) not null,
+    rating integer not null default 5,
+    user_name character varying not null,
+    user_mail character varying not null ,
+    body character varying not null,
+    created_at timestamp not null default current_timestamp
+);
+comment on table feedbacks is 'отзывы';
+comment on column feedbacks.rating is 'рэйтинг от 0 до 5';
+
+CREATE TABLE feedback_comments (
+    id bigserial primary key ,
+    feedback_id bigint references feedbacks (id) not null ,
+    user_id integer references users(id) not null,
+    body character varying not null ,
+    created_at timestamp not null default current_timestamp
+);
+comment on table feedback_comments is 'комментарий к отзыву';
